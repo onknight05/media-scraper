@@ -1,0 +1,12 @@
+node_modules
+.next
+out
+build
+coverage
+*.min.js
+tsconfig.json
+.eslintrc.json
+.vscode
+.DS_Store
+.idea
+.css
