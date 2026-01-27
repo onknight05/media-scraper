@@ -151,7 +151,6 @@ export class ScraperService {
   }
 
   async deleteAllSources() {
-    await this.mediaRepository.clear();
     return this.sourceRepository.clear();
   }
 

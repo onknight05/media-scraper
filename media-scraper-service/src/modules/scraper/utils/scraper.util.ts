@@ -1,4 +1,5 @@
 import { MediaType } from '../entities/scraped-media.entity';
+import * as cheerio from 'cheerio';
 
 export interface ScrapedMediaItem {
   url: string;
@@ -13,32 +14,24 @@ export interface ScrapedMediaItem {
  * @returns
  */
 export async function extractMediaItemsFromUrl(sourceUrl: string): Promise<ScrapedMediaItem[]> {
-  // Dynamic import
-  const axios = await import('axios');
-  const cheerio = await import('cheerio');
-
-  const response = await axios.default.get(sourceUrl, {
-    timeout: 10000,
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    },
-  });
-
-  const $ = cheerio.load(response.data);
+  const content = await customFetchContent(sourceUrl);
+  const $ = cheerio.load(content);
   const mediaItems: ScrapedMediaItem[] = [];
+  const checked = new Set<string>();
 
   // Extract images
   $('img').each((_, element) => {
     const src = $(element).attr('src');
     if (src) {
       const absoluteUrl = resolveUrl(src, sourceUrl);
-      if (absoluteUrl) {
+      if (absoluteUrl && !checked.has(`img:${absoluteUrl}`)) {
         mediaItems.push({
           url: absoluteUrl,
           type: MediaType.IMAGE,
           title: $(element).attr('title') || undefined,
           alt: $(element).attr('alt') || undefined,
         });
+        checked.add(`img:${absoluteUrl}`);
       }
     }
   });
@@ -48,13 +41,14 @@ export async function extractMediaItemsFromUrl(sourceUrl: string): Promise<Scrap
     const src = $(element).attr('src');
     if (src) {
       const absoluteUrl = resolveUrl(src, sourceUrl);
-      if (absoluteUrl) {
+      if (absoluteUrl && !checked.has(`video:${absoluteUrl}`)) {
         mediaItems.push({
           url: absoluteUrl,
           type: MediaType.VIDEO,
           title: $(element).attr('title') || undefined,
           alt: undefined,
         });
+        checked.add(`video:${absoluteUrl}`);
       }
     }
   });
@@ -62,16 +56,49 @@ export async function extractMediaItemsFromUrl(sourceUrl: string): Promise<Scrap
   // Extract video iframes (YouTube, Vimeo, etc.)
   $('iframe').each((_, element) => {
     const src = $(element).attr('src');
-    if (src && isVideoEmbed(src)) {
+    if (src && isVideoEmbed(src) && !checked.has(`iframe:${src}`)) {
       mediaItems.push({
         url: src,
         type: MediaType.VIDEO,
         title: $(element).attr('title') || undefined,
         alt: undefined,
       });
+      checked.add(`iframe:${src}`);
     }
   });
   return mediaItems;
+}
+
+async function customFetchContent(url: string): Promise<string> {
+  let result = '';
+
+  const fetchRes = await fetch(url, {
+    method: 'GET',
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!fetchRes.ok) {
+    // retry with other fetch strategies
+    try {
+      result = await customGotScraping(url);
+      return result;
+    } catch (error) {
+      throw error;
+    }
+  }
+  result = await fetchRes.text();
+
+  return result;
+}
+
+async function customGotScraping(url: string): Promise<string> {
+  // Dynamically import to avoid loading got-scraping unless necessary and testing
+  const { getGotScraping } = await import('./esm-loader.mjs');
+  const gotScraping = await getGotScraping();
+  const response = await gotScraping(url, {
+    timeout: {request: 10000 },
+    retry: { limit: 2 },
+  });
+  return response.body;
 }
 
 function resolveUrl(url: string, baseUrl: string): string | null {

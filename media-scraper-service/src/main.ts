@@ -3,8 +3,8 @@ import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter } from '@common/filters/http-exception.filter';
-import { APP_CONFIG } from '@config/app.config';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { APP_CONFIG } from './config/app.config';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');

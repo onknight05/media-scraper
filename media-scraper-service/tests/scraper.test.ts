@@ -1,8 +1,8 @@
-import axios from 'axios';
 import { extractMediaItemsFromUrl } from '../src/modules/scraper/utils/scraper.util';
 
-jest.mock('axios');
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+const originalFetch = global.fetch;
+const mockFetch = jest.fn();
+global.fetch = mockFetch;
 
 describe('Scraper unit test', () => {
   beforeEach(() => {
@@ -10,8 +10,9 @@ describe('Scraper unit test', () => {
   });
 
   test('extractMediaItemsFromUrl should extract media items correctly', async () => {
-    mockedAxios.get.mockResolvedValue({
-      data: `
+    mockFetch.mockResolvedValue({
+      ok: true,
+      text: async () => `
         <html>
           <body>
             <img src="http://domain1.com/image1.jpg" />
@@ -34,8 +35,9 @@ describe('Scraper unit test', () => {
   });
 
   test('extractMediaItemsFromUrl should handle no media found', async () => {
-    mockedAxios.get.mockResolvedValue({
-      data: `
+    mockFetch.mockResolvedValue({
+      ok: true,
+      text: async () => `
         <html>
           <body>
             <p>No media here!</p>
@@ -50,18 +52,25 @@ describe('Scraper unit test', () => {
   });
 
   test('extractMediaItemsFromUrl should handle request failure', async () => {
-    mockedAxios.get.mockRejectedValue(new Error('Network Error'));
+    mockFetch.mockRejectedValue(new Error('Network Error'));
 
     await expect(extractMediaItemsFromUrl('http://example.com')).rejects.toThrow('Network Error');
   });
 
   // real online url
   test('extractMediaItemsFromUrl should extract media from real URL', async () => {
-    // Use real axios implementation for this test
-    const realAxios = jest.requireActual('axios');
-    mockedAxios.get.mockImplementation(realAxios.default.get);
-
-    const mediaItems = await extractMediaItemsFromUrl('https://www.wikipedia.org/');
+    // Use real implementation for this test
+    global.fetch = originalFetch;
+    const urls = [
+      'https://www.wikipedia.org/',
+      'https://unsplash.com/s/photos/city',
+    ];
+    const mediaItems = [];
+    for (const url of urls) {
+      const items = await extractMediaItemsFromUrl(url);
+      mediaItems.push(...items);
+    }
+    console.log(mediaItems);
     // expect at least one image that logo of wikipedia
     expect(mediaItems.length).toBeGreaterThan(0);
     expect(
@@ -73,12 +82,9 @@ describe('Scraper unit test', () => {
 
   // real axios to un-reachable url
   test('extractMediaItemsFromUrl should handle request failure getaddrinfo', async () => {
-    // Use real axios implementation for this test
-    const realAxios = jest.requireActual('axios');
-    mockedAxios.get.mockImplementation(realAxios.default.get);
+    // Use real implementation for this test
+    global.fetch = originalFetch;
 
-    await expect(extractMediaItemsFromUrl('https://www.unreachable.org/')).rejects.toThrow(
-      'getaddrinfo ENOTFOUND'
-    );
+    await expect(extractMediaItemsFromUrl('https://www.unreachable.org/')).rejects.toThrow();
   });
 });
