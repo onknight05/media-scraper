@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ScrapeStatus } from '../types';
 import type { ScrapeSource } from '../types';
-import { getSources, rescrapeSource, deleteSource, deleteAllSources } from '../services/api';
+import { getSources, rescrapeSource, deleteSource, deleteAllSources, scrapeAllUrls } from '../services/api';
 import Pagination from './Pagination';
 import Toast from './Toast';
 import ConfirmModal from './ConfirmModal';
@@ -64,7 +64,7 @@ function SourceRow({ source, onRescrape, onDelete }: SourceRowProps) {
           <button
             onClick={() => handleAction('rescrape', () => onRescrape(source.id) as unknown as Promise<void>)}
             disabled={actionLoading !== null}
-            className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50 cursor-pointer"
+            className="text-xs text-yellow-600 hover:text-blue-800 disabled:opacity-50 cursor-pointer"
           >
             {actionLoading === 'rescrape' ? 'Rescraping...' : 'Rescrape'}
           </button>
@@ -85,6 +85,7 @@ export default function SourceList() {
   const [sources, setSources] = useState<ScrapeSource[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showRescrapeAllConfirm, setShowRescrapeAllConfirm] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
@@ -136,6 +137,19 @@ export default function SourceList() {
     }
   };
 
+  const confirmRescrapeAll = async () => {
+    setShowRescrapeAllConfirm(false);
+    setLoading(true);
+    try {
+      await scrapeAllUrls();
+      fetchSources();
+    } catch (error) {
+      addToast('Failed to rescrape all sources.', 'error', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleRescrape = async (id: string) => {
     try {
       await rescrapeSource(id);
@@ -180,6 +194,12 @@ export default function SourceList() {
             className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
           >
             Refresh
+          </button>
+          <button
+            onClick={() => setShowRescrapeAllConfirm(true)}
+            className="text-sm text-yellow-600 hover:text-yellow-800 cursor-pointer"
+          >
+            Rescrape All
           </button>
           <button
             onClick={() => setShowDeleteConfirm(true)}
@@ -233,6 +253,15 @@ export default function SourceList() {
       )}
 
       <Pagination page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
+      {showRescrapeAllConfirm && (
+        <ConfirmModal
+          title="Rescrape All Sources"
+          message={`Are you sure you want to rescrape all sources(${total})? This will delete existing media and re-initiate scraping for all source URLs.`}
+          confirmLabel="Rescrape All"
+          onConfirm={confirmRescrapeAll}
+          onCancel={() => setShowRescrapeAllConfirm(false)}
+        />
+      )}
       {showDeleteConfirm && (
         <ConfirmModal
           title="Delete All Sources"

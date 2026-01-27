@@ -30,6 +30,11 @@ export async function scrapeUrls(urls: string[]): Promise<ScrapeResponse> {
   return data;
 }
 
+export async function scrapeAllUrls(): Promise<ScrapeResponse> {
+  const { data } = await scraperClient.post<ScrapeResponse>('/scrape/all');
+  return data;
+}
+
 // --- Sources ---
 
 export async function getSources(query: SourceQuery): Promise<PaginatedResponse<ScrapeSource>> {

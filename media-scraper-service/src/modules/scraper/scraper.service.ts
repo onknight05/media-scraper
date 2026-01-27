@@ -45,6 +45,16 @@ export class ScraperService {
     };
   }
 
+  async scrapeAllUrls(): Promise<ScrapeResponseDto> {
+    const sources = await this.sourceRepository.find();
+    this.processSourcesAsync(sources);
+
+    return {
+      message: 'Scraping started for all sources',
+      urlsQueued: sources.length,
+    };
+  }
+
   private async processSourcesAsync(sources: ScrapeSource[]): Promise<void> {
     for (const source of sources) {
       try {
@@ -167,7 +177,7 @@ export class ScraperService {
 
     if (search) {
       queryBuilder.andWhere(
-        '(media.title ILIKE :search OR media.alt ILIKE :search OR media.url ILIKE :search)',
+        '(media.title ILIKE :search OR media.alt ILIKE :search OR media.url ILIKE :search OR media.sourceUrl ILIKE :search)',
         { search: `%${search}%` }
       );
     }

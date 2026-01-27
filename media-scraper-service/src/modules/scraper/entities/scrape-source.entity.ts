@@ -40,9 +40,6 @@ export class ScrapeSource {
   @Column({ type: 'timestamp', nullable: true })
   lastScrapedAt: Date;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
 }

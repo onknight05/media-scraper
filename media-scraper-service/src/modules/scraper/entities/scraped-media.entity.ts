@@ -37,6 +37,6 @@ export class ScrapedMedia {
   // @Column({ type: 'int', nullable: true })
   // height: number;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 }

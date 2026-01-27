@@ -34,6 +34,12 @@ export class ScraperController {
     return this.scraperService.scrapeUrls(dto);
   }
 
+  @Post('scrape/all')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async scrapeAll(): Promise<ScrapeResponseDto> {
+    return this.scraperService.scrapeAllUrls();
+  }
+
   // --- Sources ---
 
   @Get('sources')
