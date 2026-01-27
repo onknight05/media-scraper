@@ -52,4 +52,10 @@ export class ScraperController {
       throw new NotFoundException('Media not found');
     }
   }
+
+  @Delete('media/all')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteAllMedia(): Promise<void> {
+    await this.scraperService.deleteAllMedia();
+  }
 }

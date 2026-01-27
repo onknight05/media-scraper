@@ -1,10 +1,4 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  Index,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 export enum MediaType {
   IMAGE = 'image',
@@ -28,7 +22,7 @@ export class ScrapedMedia {
   })
   type: MediaType;
 
-  @Column({ type: 'text'})
+  @Column({ type: 'text' })
   sourceUrl: string;
 
   @Column({ type: 'text', nullable: true })

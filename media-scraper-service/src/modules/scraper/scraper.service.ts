@@ -107,4 +107,9 @@ export class ScraperService {
     const result = await this.mediaRepository.delete(id);
     return result.affected;
   }
+
+  async deleteAllMedia() {
+    const result = await this.mediaRepository.clear();
+    return result;
+  }
 }
