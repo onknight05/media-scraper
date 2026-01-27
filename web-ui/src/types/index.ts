@@ -3,6 +3,13 @@ export enum MediaType {
   VIDEO = 'video',
 }
 
+export enum ScrapeStatus {
+  PENDING = 'pending',
+  SCRAPING = 'scraping',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+}
+
 export interface ScrapedMedia {
   id: string;
   url: string;
@@ -11,6 +18,17 @@ export interface ScrapedMedia {
   title: string | null;
   alt: string | null;
   createdAt: string;
+}
+
+export interface ScrapeSource {
+  id: string;
+  url: string;
+  status: ScrapeStatus;
+  mediaCount: number;
+  error: string | null;
+  lastScrapedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -31,6 +49,13 @@ export interface ScrapeResponse {
 
 export interface MediaQuery {
   type?: MediaType;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface SourceQuery {
+  status?: ScrapeStatus;
   search?: string;
   page?: number;
   limit?: number;

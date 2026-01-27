@@ -2,9 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ScrapedMedia } from './entities/scraped-media.entity';
+import { ScrapeSource, ScrapeStatus } from './entities/scrape-source.entity';
 import { ScrapeRequestDto } from './dto/scrape-request.dto';
 import { PaginatedMediaResponseDto, ScrapeResponseDto } from './dto/media-response.dto';
+import { PaginatedSourceResponseDto } from './dto/source-response.dto';
 import { GetMediaQueryDto } from './dto/get-media-query.dto';
+import { GetSourcesQueryDto } from './dto/get-sources-query.dto';
 import { extractMediaItemsFromUrl } from './utils/scraper.util';
 
 @Injectable()
@@ -13,56 +16,146 @@ export class ScraperService {
 
   constructor(
     @InjectRepository(ScrapedMedia)
-    private readonly mediaRepository: Repository<ScrapedMedia>
+    private readonly mediaRepository: Repository<ScrapedMedia>,
+    @InjectRepository(ScrapeSource)
+    private readonly sourceRepository: Repository<ScrapeSource>
   ) {}
 
   async scrapeUrls(dto: ScrapeRequestDto): Promise<ScrapeResponseDto> {
     const { urls } = dto;
 
-    // TODO: remove duplicates.
-    // TODO: use a job queue for better scalability.
-    // Process URLs asynchronously (fire and forget for now)
-    // In production, this should use a queue (Bull/Redis)
-    this.processUrlsAsync(urls);
+    // Upsert sources — reset failed ones to pending
+    const sources: ScrapeSource[] = [];
+    for (const url of urls) {
+      let source = await this.sourceRepository.findOne({ where: { url } });
+      if (source) {
+        source.status = ScrapeStatus.PENDING;
+        source.error = null as unknown as string;
+      } else {
+        source = this.sourceRepository.create({ url });
+      }
+      sources.push(await this.sourceRepository.save(source));
+    }
+
+    this.processSourcesAsync(sources);
 
     return {
       message: 'Scraping started',
-      urlsQueued: urls.length,
+      urlsQueued: sources.length,
     };
   }
 
-  private async processUrlsAsync(urls: string[]): Promise<void> {
-    for (const url of urls) {
+  private async processSourcesAsync(sources: ScrapeSource[]): Promise<void> {
+    for (const source of sources) {
       try {
-        await this.scrapeUrl(url);
+        await this.scrapeSource(source);
       } catch (error) {
-        this.logger.error(`Failed to scrape ${url}`, error);
+        this.logger.error(`Failed to scrape ${source.url}`, error);
       }
     }
   }
 
-  private async scrapeUrl(sourceUrl: string): Promise<void> {
-    this.logger.log(`Scraping: ${sourceUrl}`);
+  private async scrapeSource(source: ScrapeSource): Promise<void> {
+    this.logger.log(`Scraping: ${source.url}`);
+
+    source.status = ScrapeStatus.SCRAPING;
+    await this.sourceRepository.save(source);
 
     try {
-      const mediaItems = await extractMediaItemsFromUrl(sourceUrl);
+      const mediaItems = await extractMediaItemsFromUrl(source.url);
 
-      // Save to database
       if (mediaItems.length > 0) {
         const entities = mediaItems.map((item) =>
           this.mediaRepository.create({
             ...item,
-            sourceUrl,
+            sourceUrl: source.url,
           })
         );
         await this.mediaRepository.save(entities);
-        this.logger.log(`Saved ${entities.length} media items from ${sourceUrl}`);
+        this.logger.log(`Saved ${entities.length} media items from ${source.url}`);
       }
+
+      source.status = ScrapeStatus.COMPLETED;
+      source.mediaCount = mediaItems.length;
+      source.error = null as unknown as string;
+      source.lastScrapedAt = new Date();
+      await this.sourceRepository.save(source);
     } catch (error) {
-      this.logger.error(`Error scraping ${sourceUrl}`, error);
+      source.status = ScrapeStatus.FAILED;
+      source.error = error instanceof Error ? error.message : String(error);
+      await this.sourceRepository.save(source);
       throw error;
     }
   }
+
+  async rescrapeSource(id: string): Promise<ScrapeSource | null> {
+    const source = await this.sourceRepository.findOne({ where: { id } });
+    if (!source) return null;
+
+    // Delete old media from this source
+    await this.mediaRepository.delete({ sourceUrl: source.url });
+
+    source.status = ScrapeStatus.PENDING;
+    source.error = null as unknown as string;
+    source.mediaCount = 0;
+    await this.sourceRepository.save(source);
+
+    this.processSourcesAsync([source]);
+
+    return source;
+  }
+
+  // --- Sources CRUD ---
+
+  async getSources(query: GetSourcesQueryDto): Promise<PaginatedSourceResponseDto> {
+    const { status, search, page = 1, limit = 20 } = query;
+
+    const qb = this.sourceRepository.createQueryBuilder('source');
+
+    if (status) {
+      qb.andWhere('source.status = :status', { status });
+    }
+
+    if (search) {
+      qb.andWhere('source.url ILIKE :search', { search: `%${search}%` });
+    }
+
+    qb.orderBy('source.createdAt', 'DESC');
+
+    const total = await qb.getCount();
+    const data = await qb
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async deleteSource(id: string) {
+    const source = await this.sourceRepository.findOne({ where: { id } });
+    if (!source) return 0;
+
+    // Delete associated media
+    await this.mediaRepository.delete({ sourceUrl: source.url });
+
+    const result = await this.sourceRepository.delete(id);
+    return result.affected;
+  }
+
+  async deleteAllSources() {
+    await this.mediaRepository.clear();
+    return this.sourceRepository.clear();
+  }
+
+  // --- Media CRUD ---
 
   async getMedia(query: GetMediaQueryDto): Promise<PaginatedMediaResponseDto> {
     const { type, search, page = 1, limit = 20 } = query;
@@ -109,7 +202,6 @@ export class ScraperService {
   }
 
   async deleteAllMedia() {
-    const result = await this.mediaRepository.clear();
-    return result;
+    return this.mediaRepository.clear();
   }
 }
