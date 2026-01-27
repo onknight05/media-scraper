@@ -60,6 +60,9 @@ importers:
       fastify:
         specifier: ^5.7.2
         version: 5.7.2
+      globals:
+        specifier: ^17.1.0
+        version: 17.1.0
       prettier:
         specifier: ^3.7.4
         version: 3.8.1
@@ -769,6 +772,10 @@ packages:
 
   globals@14.0.0:
     resolution: {integrity: sha512-oahGvuMGQlPw/ivIYBjVSrWAfWLBeku5tpPE2fOPLi+WHffIWbuh2tCjhyQhTBPMf5E9jDEH4FOmTYgYwbKwtQ==}
+    engines: {node: '>=18'}
+
+  globals@17.1.0:
+    resolution: {integrity: sha512-8HoIcWI5fCvG5NADj4bDav+er9B9JMj2vyL2pI8D0eismKyUvPLTSs+Ln3wqhwcp306i73iyVnEKx3F6T47TGw==}
     engines: {node: '>=18'}
 
   gopd@1.2.0:
@@ -2222,6 +2229,8 @@ snapshots:
       path-is-absolute: 1.0.1
 
   globals@14.0.0: {}
+
+  globals@17.1.0: {}
 
   gopd@1.2.0: {}
 
