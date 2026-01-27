@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { InjectQueue } from '@nestjs/bullmq';
+import { BulkJobOptions, Queue } from 'bullmq';
 import { Repository } from 'typeorm';
 import { ScrapedMedia } from './entities/scraped-media.entity';
 import { ScrapeSource, ScrapeStatus } from './entities/scrape-source.entity';
@@ -8,7 +10,7 @@ import { PaginatedMediaResponseDto, ScrapeResponseDto } from './dto/media-respon
 import { PaginatedSourceResponseDto } from './dto/source-response.dto';
 import { GetMediaQueryDto } from './dto/get-media-query.dto';
 import { GetSourcesQueryDto } from './dto/get-sources-query.dto';
-import { extractMediaItemsFromUrl } from './utils/scraper.util';
+import { SCRAPER_QUEUE, ScrapeJobData } from './scraper.constants';
 
 @Injectable()
 export class ScraperService {
@@ -18,7 +20,9 @@ export class ScraperService {
     @InjectRepository(ScrapedMedia)
     private readonly mediaRepository: Repository<ScrapedMedia>,
     @InjectRepository(ScrapeSource)
-    private readonly sourceRepository: Repository<ScrapeSource>
+    private readonly sourceRepository: Repository<ScrapeSource>,
+    @InjectQueue(SCRAPER_QUEUE)
+    private readonly scraperQueue: Queue<ScrapeJobData>
   ) {}
 
   async scrapeUrls(dto: ScrapeRequestDto): Promise<ScrapeResponseDto> {
@@ -37,7 +41,7 @@ export class ScraperService {
       sources.push(await this.sourceRepository.save(source));
     }
 
-    this.processSourcesAsync(sources);
+    await this.enqueueSources(sources);
 
     return {
       message: 'Scraping started',
@@ -47,7 +51,17 @@ export class ScraperService {
 
   async scrapeAllUrls(): Promise<ScrapeResponseDto> {
     const sources = await this.sourceRepository.find();
-    this.processSourcesAsync(sources);
+    for (const url of sources.map((s) => s.url)) {
+      let source = await this.sourceRepository.findOne({ where: { url } });
+      if (source) {
+        source.status = ScrapeStatus.PENDING;
+        source.error = null as unknown as string;
+      } else {
+        source = this.sourceRepository.create({ url });
+      }
+      await this.sourceRepository.save(source);
+    }
+    await this.enqueueSources(sources);
 
     return {
       message: 'Scraping started for all sources',
@@ -55,46 +69,25 @@ export class ScraperService {
     };
   }
 
-  private async processSourcesAsync(sources: ScrapeSource[]): Promise<void> {
-    for (const source of sources) {
-      try {
-        await this.scrapeSource(source);
-      } catch (error) {
-        this.logger.error(`Failed to scrape ${source.url}`, error);
-      }
-    }
-  }
+  private async enqueueSources(sources: ScrapeSource[]): Promise<void> {
+    const jobs = sources.map((source) => ({
+      name: `scrape-source-${source.id}`,
+      data: { sourceId: source.id, url: source.url } as ScrapeJobData,
+      // /**
+      //  * Currently, each job has a unique ID to prevent duplicates on re-enqueueing
+      //  * But will lead to no any completed jobs being stored if the same source is re-enqueued
+      //  * Consider changing the jobId strategy if you want to keep completed jobs history
+      //  */
+      // opts: {
+      //   jobId: `scrape-${source.id}`,
+      //   removeOnComplete: true,
+      //   removeOnFail: true,
+      // } as BulkJobOptions,
+    }));
 
-  private async scrapeSource(source: ScrapeSource): Promise<void> {
-    this.logger.log(`Scraping: ${source.url}`);
-
-    source.status = ScrapeStatus.SCRAPING;
-    await this.sourceRepository.save(source);
-
-    try {
-      const mediaItems = await extractMediaItemsFromUrl(source.url);
-
-      if (mediaItems.length > 0) {
-        const entities = mediaItems.map((item) =>
-          this.mediaRepository.create({
-            ...item,
-            sourceUrl: source.url,
-          })
-        );
-        await this.mediaRepository.save(entities);
-        this.logger.log(`Saved ${entities.length} media items from ${source.url}`);
-      }
-
-      source.status = ScrapeStatus.COMPLETED;
-      source.mediaCount = mediaItems.length;
-      source.error = null as unknown as string;
-      source.lastScrapedAt = new Date();
-      await this.sourceRepository.save(source);
-    } catch (error) {
-      source.status = ScrapeStatus.FAILED;
-      source.error = error instanceof Error ? error.message : String(error);
-      await this.sourceRepository.save(source);
-      throw error;
+    if (jobs.length > 0) {
+      await this.scraperQueue.addBulk(jobs);
+      this.logger.log(`Enqueued ${jobs.length} scraping jobs`);
     }
   }
 
@@ -110,7 +103,7 @@ export class ScraperService {
     source.mediaCount = 0;
     await this.sourceRepository.save(source);
 
-    this.processSourcesAsync([source]);
+    await this.enqueueSources([source]);
 
     return source;
   }

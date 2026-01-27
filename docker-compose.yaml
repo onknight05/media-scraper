@@ -18,6 +18,19 @@ services:
     image: redis:7-alpine
     ports:
       - "${REDIS_PORT}:6379"
+  bull-monitor:
+    image: ejhayes/nodejs-bull-monitor:2.2.0
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT}
+      - BULL_COLLECT_QUEUE_METRICS_INTERVAL_MS=5000
+      # - UI=bull-master
+      - UI=bull-board
+      - BULL_WATCH_QUEUE_PREFIXES=bull
+    ports:
+      - "3002:3000"
+    depends_on:
+      - redis
 
 volumes:
   postgres_data:

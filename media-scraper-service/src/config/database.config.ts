@@ -15,6 +15,9 @@ export const getDatabaseConfig = (): TypeOrmModuleOptions => ({
   logging: !APP_CONFIG.DB_LOGGING
     ? false
     : (APP_CONFIG.DB_LOGGING.split(',').map((level) => level.trim()) as LogLevel[]),
+  extra: {
+    max: APP_CONFIG.DB_POOL_SIZE,
+  },
 });
 
 const dataSourceOptions: DataSourceOptions = {

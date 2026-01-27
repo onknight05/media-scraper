@@ -3,8 +3,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { getDatabaseConfig } from '@config/database.config';
 import { APP_CONFIG } from '@config/app.config';
-import { HealthModule } from '@modules/health/health.module';
-import { ScraperModule } from '@modules/scraper/scraper.module';
+import { ScrapedMedia } from '@modules/scraper/entities/scraped-media.entity';
+import { ScrapeSource } from '@modules/scraper/entities/scrape-source.entity';
+import { ScraperQueueConsumer } from '@/modules/queues/scraper.queue';
+import { SCRAPER_QUEUE } from '@modules/scraper/scraper.constants';
 
 @Module({
   imports: [
@@ -17,8 +19,6 @@ import { ScraperModule } from '@modules/scraper/scraper.module';
         port: APP_CONFIG.REDIS_PORT,
       },
       defaultJobOptions: {
-        removeOnComplete: { count: 5000 },
-        removeOnFail: { count: 5000 },
         attempts: 3,
         backoff: {
           type: 'exponential',
@@ -26,10 +26,9 @@ import { ScraperModule } from '@modules/scraper/scraper.module';
         },
       },
     }),
-    HealthModule,
-    ScraperModule,
+    BullModule.registerQueue({ name: SCRAPER_QUEUE }),
+    TypeOrmModule.forFeature([ScrapedMedia, ScrapeSource]),
   ],
-  controllers: [],
-  providers: [],
+  providers: [ScraperQueueConsumer],
 })
-export class AppModule {}
+export class WorkerModule {}

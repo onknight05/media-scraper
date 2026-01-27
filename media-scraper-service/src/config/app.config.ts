@@ -13,4 +13,10 @@ export const APP_CONFIG = {
   DB_PASSWORD: process.env.DB_PASSWORD || 'postgres',
   DB_NAME: process.env.DB_NAME || 'media_scraper',
   DB_LOGGING: process.env.DB_LOGGING || 'error,warn',
+  DB_POOL_SIZE: parseInt(process.env.DB_POOL_SIZE || '20', 10),
+
+  REDIS_HOST: process.env.REDIS_HOST || 'localhost',
+  REDIS_PORT: parseInt(process.env.REDIS_PORT || '6379', 10),
+
+  SCRAPER_CONCURRENCY: parseInt(process.env.SCRAPER_CONCURRENCY || '20', 10),
 } as const;
