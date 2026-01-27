@@ -8,7 +8,6 @@ export class SourceResponseDto {
   error: string | null;
   lastScrapedAt: Date | null;
   createdAt: Date;
-  updatedAt: Date;
 }
 
 export class PaginatedSourceResponseDto {
