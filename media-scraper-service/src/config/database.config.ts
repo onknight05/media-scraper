@@ -1,5 +1,5 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
-import { DataSource, DataSourceOptions } from 'typeorm';
+import { DataSource, DataSourceOptions, LogLevel } from 'typeorm';
 import { APP_CONFIG } from './app.config';
 
 export const getDatabaseConfig = (): TypeOrmModuleOptions => ({
@@ -12,7 +12,9 @@ export const getDatabaseConfig = (): TypeOrmModuleOptions => ({
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
   migrations: [__dirname + '/../migrations/*{.ts,.js}'],
   synchronize: !APP_CONFIG.IS_PRODUCTION,
-  logging: !APP_CONFIG.IS_PRODUCTION,
+  logging: !APP_CONFIG.DB_LOGGING
+    ? false
+    : (APP_CONFIG.DB_LOGGING.split(',').map((level) => level.trim()) as LogLevel[]),
 });
 
 const dataSourceOptions: DataSourceOptions = {

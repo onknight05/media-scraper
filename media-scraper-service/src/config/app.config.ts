@@ -12,4 +12,5 @@ export const APP_CONFIG = {
   DB_USER: process.env.DB_USER || 'postgres',
   DB_PASSWORD: process.env.DB_PASSWORD || 'postgres',
   DB_NAME: process.env.DB_NAME || 'media_scraper',
+  DB_LOGGING: process.env.DB_LOGGING || 'error,warn',
 } as const;
