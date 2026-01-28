@@ -5,6 +5,7 @@ import { getDatabaseConfig } from '@config/database.config';
 import { APP_CONFIG } from '@config/app.config';
 import { HealthModule } from '@modules/health/health.module';
 import { ScraperModule } from '@modules/scraper/scraper.module';
+import { MetricsModule } from '@modules/metrics/metrics.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ScraperModule } from '@modules/scraper/scraper.module';
         },
       },
     }),
+    MetricsModule,
     HealthModule,
     ScraperModule,
   ],

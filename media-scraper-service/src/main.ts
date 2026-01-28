@@ -4,6 +4,8 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { HttpMetricsInterceptor } from './modules/metrics/http-metrics.interceptor';
+import { MetricsService } from './modules/metrics/metrics.service';
 import { APP_CONFIG } from './config/app.config';
 
 async function bootstrap() {
@@ -24,6 +26,7 @@ async function bootstrap() {
     })
   );
   app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalInterceptors(new HttpMetricsInterceptor(app.get(MetricsService)));
 
   app.enableCors({
     origin: true,

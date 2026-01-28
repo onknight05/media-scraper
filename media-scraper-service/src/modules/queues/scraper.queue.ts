@@ -8,6 +8,7 @@ import { ScrapeSource, ScrapeStatus } from '../scraper/entities/scrape-source.en
 import { extractMediaItemsFromUrl } from '../scraper/utils/scraper.util';
 import { APP_CONFIG } from '@config/app.config';
 import { SCRAPER_QUEUE, ScrapeJobData } from '../scraper/scraper.constants';
+import { MetricsService } from '../metrics/metrics.service';
 
 @Processor(SCRAPER_QUEUE, {
   concurrency: APP_CONFIG.SCRAPER_CONCURRENCY,
@@ -20,6 +21,7 @@ export class ScraperQueueConsumer extends WorkerHost {
     private readonly mediaRepository: Repository<ScrapedMedia>,
     @InjectRepository(ScrapeSource)
     private readonly sourceRepository: Repository<ScrapeSource>,
+    private readonly metricsService: MetricsService,
   ) {
     super();
   }
@@ -28,9 +30,13 @@ export class ScraperQueueConsumer extends WorkerHost {
     const { sourceId, url } = job.data;
     this.logger.log(`Processing job ${job.id}: scraping ${url}`);
 
+    const timer = this.metricsService.jobProcessingDuration.startTimer();
+
     const source = await this.sourceRepository.findOne({ where: { id: sourceId } });
     if (!source) {
       this.logger.warn(`Source ${sourceId} not found, skipping job`);
+      timer({ status: 'skipped' });
+      this.metricsService.jobTotal.inc({ status: 'skipped' });
       return 0;
     }
 
@@ -63,11 +69,20 @@ export class ScraperQueueConsumer extends WorkerHost {
       source.error = null as unknown as string;
       source.lastScrapedAt = new Date();
       await this.sourceRepository.save(source);
+
+      timer({ status: 'completed' });
+      this.metricsService.jobTotal.inc({ status: 'completed' });
+      this.metricsService.jobMediaExtracted.observe(mediaItems.length);
+
       return mediaItems.length;
     } catch (error) {
       source.status = ScrapeStatus.FAILED;
       source.error = error instanceof Error ? error.message : String(error);
       await this.sourceRepository.save(source);
+
+      timer({ status: 'failed' });
+      this.metricsService.jobTotal.inc({ status: 'failed' });
+
       throw error;
     }
   }

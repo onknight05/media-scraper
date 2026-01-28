@@ -7,6 +7,7 @@ import { ScrapedMedia } from '@modules/scraper/entities/scraped-media.entity';
 import { ScrapeSource } from '@modules/scraper/entities/scrape-source.entity';
 import { ScraperQueueConsumer } from '@/modules/queues/scraper.queue';
 import { SCRAPER_QUEUE } from '@modules/scraper/scraper.constants';
+import { MetricsModule } from '@modules/metrics/metrics.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { SCRAPER_QUEUE } from '@modules/scraper/scraper.constants';
     }),
     BullModule.registerQueue({ name: SCRAPER_QUEUE }),
     TypeOrmModule.forFeature([ScrapedMedia, ScrapeSource]),
+    MetricsModule,
   ],
   providers: [ScraperQueueConsumer],
 })

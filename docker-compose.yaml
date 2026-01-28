@@ -15,6 +15,7 @@ services:
     build: ./media-scraper-service
     ports:
       - "3001:3001"
+      - "3010:3010"
     environment:
       - PORT=3001
       - DB_HOST=postgres
@@ -73,5 +74,42 @@ services:
     depends_on:
       - redis
 
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - media-scraper-service
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3003:3000"
+    depends_on:
+      - prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
 volumes:
   postgres_data:
+  prometheus_data:
+  grafana_data:

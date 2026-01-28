@@ -1,5 +1,6 @@
 import { MediaType } from '../entities/scraped-media.entity';
 import * as cheerio from 'cheerio';
+import { getMetricsService } from '../../metrics/metrics.singleton';
 
 export interface ScrapedMediaItem {
   url: string;
@@ -14,31 +15,46 @@ export interface ScrapedMediaItem {
  * @returns
  */
 export async function extractMediaItemsFromUrl(sourceUrl: string): Promise<ScrapedMediaItem[]> {
+  const metrics = getMetricsService();
+
   const useDynamicByURL = shouldUseDynamicRenderingExtractByURL(sourceUrl);
   if (useDynamicByURL) {
     console.log(`Using dynamic rendering extract ${sourceUrl}`);
+    const timer = metrics?.scrapeFetchDuration.startTimer({ strategy: 'playwright_by_url' });
     const renderedContent = await fetchDynamicRenderingContent(sourceUrl);
+    timer?.();
     if (renderedContent) {
+      metrics?.scrapeFetchStrategyTotal.inc({ strategy: 'playwright_by_url', outcome: 'success' });
       return parseMediaFromHtml(renderedContent, sourceUrl);
     }
+    metrics?.scrapeFetchStrategyTotal.inc({ strategy: 'playwright_by_url', outcome: 'failure' });
   }
 
+  const staticTimer = metrics?.scrapeFetchDuration.startTimer({ strategy: 'static' });
   const content = await fetchStaticContent(sourceUrl);
+  staticTimer?.();
+  metrics?.scrapeFetchStrategyTotal.inc({ strategy: 'static', outcome: 'success' });
+
   const mediaItems = parseMediaFromHtml(content, sourceUrl);
 
   // Fallback: if no media found, the page may be JS-rendered
   if (mediaItems.length === 0 && shouldUseDynamicRenderingExtractByContent(content)) {
     console.log(`No media found with static fetch, trying dynamic extract ${sourceUrl}`);
+    const timer = metrics?.scrapeFetchDuration.startTimer({ strategy: 'playwright_fallback' });
     const renderedContent = await fetchDynamicRenderingContent(sourceUrl);
+    timer?.();
     if (renderedContent) {
+      metrics?.scrapeFetchStrategyTotal.inc({ strategy: 'playwright_fallback', outcome: 'success' });
       return parseMediaFromHtml(renderedContent, sourceUrl);
     }
+    metrics?.scrapeFetchStrategyTotal.inc({ strategy: 'playwright_fallback', outcome: 'failure' });
   }
 
   return mediaItems;
 }
 
 async function fetchStaticContent(url: string): Promise<string> {
+  const metrics = getMetricsService();
   let result = '';
 
   const fetchRes = await fetch(url, {
@@ -46,14 +62,21 @@ async function fetchStaticContent(url: string): Promise<string> {
     signal: AbortSignal.timeout(10000),
   });
   if (!fetchRes.ok) {
+    metrics?.scrapeFetchStrategyTotal.inc({ strategy: 'fetch', outcome: 'failure' });
     // retry with other fetch strategies
+    const gotTimer = metrics?.scrapeFetchDuration.startTimer({ strategy: 'got_scraping' });
     try {
       result = await customGotScraping(url);
+      gotTimer?.();
+      metrics?.scrapeFetchStrategyTotal.inc({ strategy: 'got_scraping', outcome: 'success' });
       return result;
     } catch (error) {
+      gotTimer?.();
+      metrics?.scrapeFetchStrategyTotal.inc({ strategy: 'got_scraping', outcome: 'failure' });
       throw error;
     }
   }
+  metrics?.scrapeFetchStrategyTotal.inc({ strategy: 'fetch', outcome: 'success' });
   result = await fetchRes.text();
 
   return result;
