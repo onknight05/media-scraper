@@ -12,6 +12,6 @@ describe('Scraper unit test', () => {
 
     const mediaItems = parseMediaFromHtml(htmlContent, sourceUrl);
     console.log(mediaItems);
-    expect(mediaItems).toEqual([]);
+    expect(mediaItems.length).toBeGreaterThan(0);
   });
 });

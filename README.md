@@ -61,12 +61,12 @@ graph TD
 1. Clone the repository and navigate to the `media-scraper` directory
 2. Copy `.env.example` to `.env` and adjust settings if necessary
 3. Run `docker-compose up --build` to start the services
-4. Access the frontend at `http://localhost:3000`
-5. Access the Bull Board for queue monitoring at `http://localhost:3002/queues/queue/scraper`
+4. Access the frontend at http://localhost:3000
+5. Access the Bull Board for queue monitoring at http://localhost:3002/queues/queue/scraper
 
 ### Testing
 
-1. Open UI at `http://localhost:3000`
+1. Open UI at http://localhost:3000
 2. Input multiple URLs in the textarea, example:
 
    ```text
@@ -78,7 +78,7 @@ graph TD
     https://books.toscrape.com/catalogue/page-2.html
    ```
 
-3. Click "Scrape Media" to submit the URLs for scraping
+3. Click "Scrape" to submit the URLs for scraping
 4. Monitor the queue processing at `http://localhost:3002/queues/queue/scraper/scraper`
 5. Once processing is complete, the media results will be displayed on the frontend with pagination and filtering options
 
@@ -93,6 +93,17 @@ graph TD
    ```
 
 4. Monitor the output for performance metrics and any errors
+
+### Tips
+
+- For inspecting media-scraper-service:
+
+  ```bash
+   docker ps
+   # Find container name, ex: media-scraper-media-scraper-service-1
+   # Inspect
+   docker stats media-scraper-media-scraper-service-1
+  ```
 
 ## Future improvements
 
