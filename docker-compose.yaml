@@ -1,4 +1,43 @@
 services:
+  web-ui:
+    build: ./web-ui
+    ports:
+      - "3000:80"
+    depends_on:
+      - media-scraper-service
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+  media-scraper-service:
+    build: ./media-scraper-service
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DB_HOST=postgres
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=5432
+      - DB_LOGGING=${DB_LOGGING:-schema,error,warn,migration}
+      - DB_POOL_SIZE=${DB_POOL_SIZE:-20}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SCRAPER_CONCURRENCY=${SCRAPER_CONCURRENCY:-20}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+
   postgres:
     image: postgres:16-alpine
     environment:
@@ -14,10 +53,12 @@ services:
       retries: 5
     ports:
       - "${DB_PORT}:5432"
+
   redis:
     image: redis:7-alpine
     ports:
       - "${REDIS_PORT}:6379"
+
   bull-monitor:
     image: ejhayes/nodejs-bull-monitor:2.2.0
     environment:
