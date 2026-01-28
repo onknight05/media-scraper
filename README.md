@@ -4,9 +4,15 @@
 
 A media scraper application that accepts an array of web URLs, scrapes image and video URLs from those pages, stores the data in a SQL database, and provides a web interface to view the scraped media with pagination and filtering options. The application is built using Node.js for the backend and React.js for the frontend, and is containerized using Docker.
 
+## What are the advantages?
+
+- Efficient scraping using concurrency/automatically retries and queue management with Bull and Redis.
+- Robust scraping capabilities using Cheerio, fetch, got-scraping, and Playwright for static and dynamic content.
+- Scalable architecture that can handle a large number of scraping requests with limited resources.
+
 ## Demo
 
-[![Demo Video](// TODO)
+[Demo Video](https://drive.google.com/file/d/1N39GWUUd9MPTl9DV0MB2zFsprCO4xgAV/view?usp=sharing)
 
 ## Requirements
 
