@@ -37,7 +37,8 @@ interface SourcesResponse {
   data: { id: string; url: string; status: string }[];
   meta: SourceMeta;
 }
-
+// https://webscraper.io/test-sites/e-commerce/static/computers/laptops?page=2 1 -> 20
+// https://books.toscrape.com/catalogue/page-1.html -> 50
 function generateTestUrls(count: number): string[] {
   const urls: string[] = [];
   for (let i = 0; i < count; i++) {
