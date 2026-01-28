@@ -1,5 +1,5 @@
 # Stage 1: Dependencies
-FROM node:22-alpine AS deps
+FROM node:22-bookworm-slim AS deps
 RUN corepack enable && corepack prepare pnpm@10.26.2 --activate
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
@@ -10,8 +10,8 @@ FROM deps AS build
 COPY . .
 RUN pnpm build
 
-# Stage 3: Production
-FROM node:22-alpine
+# Stage 3: Production (uses Playwright image for Chromium + system deps)
+FROM mcr.microsoft.com/playwright:v1.58.0-noble
 RUN corepack enable && corepack prepare pnpm@10.26.2 --activate
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
